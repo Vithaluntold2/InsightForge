@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 output/
 *.pkl
+!vectorstore/index.pkl
 .DS_Store
 test_azure.py
 test_imports.py
