@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+output/
+*.pkl
+.DS_Store
+test_azure.py
+test_imports.py
+datasets/PDF Folder/
+datasets/Agentic Healthcare Assistant*/
+.vscode/
+vectorstore/chroma.sqlite3
+vectorstore/79cf0e89*/
