@@ -335,11 +335,69 @@ def load_sales_data():
 
 @st.cache_data(show_spinner=False)
 def load_summary():
-    """Load the pre-computed summary pickle."""
+    """Load the pre-computed summary pickle, or compute it fresh from the CSV."""
     if PICKLE_FILE.exists():
         with open(PICKLE_FILE, "rb") as f:
             return pickle.load(f)
-    return None
+    # No pickle found — compute summary on the fly from the dataset
+    try:
+        df = load_sales_data()
+        return _compute_summary(df)
+    except Exception:
+        return None
+
+
+def _compute_summary(df):
+    """Build the same summary dict that insightforge_solution.py produces."""
+    summary = {}
+    summary["overall"] = {
+        "total_records": len(df),
+        "date_range": f"{df['Date'].min().date()} to {df['Date'].max().date()}",
+        "total_sales": int(df["Sales"].sum()),
+        "mean_sales": round(df["Sales"].mean(), 2),
+        "median_sales": round(df["Sales"].median(), 2),
+        "std_sales": round(df["Sales"].std(), 2),
+        "min_sales": int(df["Sales"].min()),
+        "max_sales": int(df["Sales"].max()),
+        "mean_satisfaction": round(df["Customer_Satisfaction"].mean(), 2),
+        "median_satisfaction": round(df["Customer_Satisfaction"].median(), 2),
+        "std_satisfaction": round(df["Customer_Satisfaction"].std(), 2),
+        "mean_customer_age": round(df["Customer_Age"].mean(), 2),
+        "median_customer_age": round(df["Customer_Age"].median(), 2),
+    }
+    yearly = df.groupby("Year").agg(
+        total_sales=("Sales", "sum"), avg_sales=("Sales", "mean"),
+        transaction_count=("Sales", "count"),
+        avg_satisfaction=("Customer_Satisfaction", "mean"),
+    ).round(2)
+    summary["yearly"] = yearly.to_dict("index")
+    products = df.groupby("Product").agg(
+        total_sales=("Sales", "sum"), avg_sales=("Sales", "mean"),
+        median_sales=("Sales", "median"), std_sales=("Sales", "std"),
+        count=("Sales", "count"),
+    ).round(2)
+    summary["products"] = products.to_dict("index")
+    regions = df.groupby("Region").agg(
+        total_sales=("Sales", "sum"), avg_sales=("Sales", "mean"),
+        median_sales=("Sales", "median"),
+        avg_satisfaction=("Customer_Satisfaction", "mean"),
+    ).round(2)
+    summary["regions"] = regions.to_dict("index")
+    gender = df.groupby("Customer_Gender").agg(
+        total_sales=("Sales", "sum"), avg_sales=("Sales", "mean"),
+        avg_satisfaction=("Customer_Satisfaction", "mean"),
+        avg_age=("Customer_Age", "mean"), count=("Sales", "count"),
+    ).round(2)
+    summary["gender"] = gender.to_dict("index")
+    age = df.groupby("AgeGroup", observed=True).agg(
+        total_sales=("Sales", "sum"), avg_sales=("Sales", "mean"),
+        avg_satisfaction=("Customer_Satisfaction", "mean"),
+        count=("Sales", "count"),
+    ).round(2)
+    summary["age_groups"] = age.to_dict("index")
+    numeric_cols = ["Sales", "Customer_Age", "Customer_Satisfaction"]
+    summary["correlations"] = df[numeric_cols].corr().round(4).to_dict()
+    return summary
 
 
 @st.cache_resource(show_spinner="Loading RAG pipeline…")
