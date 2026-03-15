@@ -400,6 +400,22 @@ def _compute_summary(df):
     return summary
 
 
+def _get_secret(key: str, default: str | None = None) -> str:
+    """Retrieve a secret from os.environ, then st.secrets, then default."""
+    val = os.environ.get(key)
+    if val:
+        return val
+    try:
+        val = st.secrets.get(key)  # type: ignore[union-attr]
+        if val:
+            return str(val)
+    except Exception:
+        pass
+    if default is not None:
+        return default
+    raise KeyError(f"Secret '{key}' not found in environment or Streamlit secrets")
+
+
 @st.cache_resource(show_spinner="Loading RAG pipeline…")
 def load_rag_chain():
     """Load vector store and build RetrievalQA chain (cached as resource)."""
@@ -417,10 +433,10 @@ def load_rag_chain():
             allow_dangerous_deserialization=True,
         )
         llm = AzureChatOpenAI(
-            azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_API_KEY"],  # type: ignore[arg-type]
-            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            azure_deployment=_get_secret("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
+            azure_endpoint=_get_secret("AZURE_OPENAI_ENDPOINT"),
+            api_key=_get_secret("AZURE_OPENAI_API_KEY"),  # type: ignore[arg-type]
+            api_version=_get_secret("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
             temperature=0.3,
         )
         prompt = PromptTemplate(
@@ -1390,3 +1406,4 @@ elif page == "AI Assistant":
             st.markdown(answer)
 
         active["messages"].append({"role": "assistant", "content": answer})
+        st.rerun()  # refresh sidebar session counter
